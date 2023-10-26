@@ -51,8 +51,9 @@ public class TransactionEntity extends EventSourcedEntity<State, Event> {
 
     @PostMapping("/set-processed-status")
     public Effect<Ack> setProcessedStatus(@RequestBody TransactionProcessStatusRequest request){
-        log.info("Set processed status for transaction [{}] with details: {}", transactionId, request);
         TransactionStatus status = from(request.status());
+        log.info("Set processed status for transaction [{}] with details: {}, status: {}/{}", transactionId, request,status,currentState().transaction().status());
+
         if(currentState().isEmpty()){
             log.error("Transaction not found [{}]",transactionId);
             return effects().error("Transaction not found", StatusCode.ErrorCode.NOT_FOUND);

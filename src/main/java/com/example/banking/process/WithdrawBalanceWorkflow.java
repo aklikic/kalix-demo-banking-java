@@ -52,7 +52,7 @@ public class WithdrawBalanceWorkflow extends Workflow<State> {
                                 .transitionTo("reserveBalance", new ReserveBalanceInput(currentState().amountToWithdraw(), userByCardViewRecord.accountId()));
                     } else {
                         return effects().updateState(currentState().userNotFound())
-                                .transitionTo("updateTransactionWithoutReserve");
+                                .transitionTo("updateTransactionWithoutReserve", new UpdateTransactionStatusInput(TransactionProcessStatus.USER_NOT_FOUND));
                     }
                 });
 
@@ -64,20 +64,19 @@ public class WithdrawBalanceWorkflow extends Workflow<State> {
         Step reserveBalance =
                 step("reserveBalance")
                 .call(ReserveBalanceInput.class, cmd -> componentClient.forEventSourcedEntity(cmd.accountId()).call(AccountEntity::reserve).params(new ReserveBalanceRequest(transactionId, cmd.amountToWithdraw())))
-                .andThen(BalanceResponse.class, balanceResponse -> {
-                    var updateState = switch (balanceResponse.status()){
-                        case SUCCESS -> effects().updateState(currentState().completed());
-                        case ACCOUNT_NOT_FOUND -> effects().updateState(currentState().accountNotFound());
-                        case FUNDS_UNAVAILABLE -> effects().updateState(currentState().fundsUnavailable());
-                    };
-                    return updateState.transitionTo("updateTransactionWithReserve");
-                });
+                .andThen(BalanceResponse.class, balanceResponse ->
+                    switch (balanceResponse.status()){
+                        case SUCCESS -> effects().updateState(currentState().completed()).transitionTo("updateTransactionWithReserve", new UpdateTransactionStatusInput(TransactionProcessStatus.COMPLETED));
+                        case ACCOUNT_NOT_FOUND -> effects().updateState(currentState().accountNotFound()).transitionTo("updateTransactionWithReserve", new UpdateTransactionStatusInput(TransactionProcessStatus.ACCOUNT_NOT_FOUND));
+                        case FUNDS_UNAVAILABLE -> effects().updateState(currentState().fundsUnavailable()).transitionTo("updateTransactionWithReserve", new UpdateTransactionStatusInput(TransactionProcessStatus.FUNDS_UNAVAILABLE));
+                    }
+                );
 
         Step updateTransactionWithReserve =
                 step("updateTransactionWithReserve")
                 .call( UpdateTransactionStatusInput.class, cmd -> componentClient.forEventSourcedEntity(transactionId).call(TransactionEntity::setProcessedStatus).params(new TransactionProcessStatusRequest(cmd.status())))
                 .andThen(Ack.class, __ -> effects().updateState(currentState().completed())
-                        .transitionTo("completeBalanceReservation"));
+                        .transitionTo("completeBalanceReservation", new ReserveBalanceInput(currentState().amountToWithdraw(), currentState().accountId())));
 
         Step completeBalanceReservation =
                 step("completeBalanceReservation")
@@ -110,5 +109,6 @@ public class WithdrawBalanceWorkflow extends Workflow<State> {
             default -> effects().error("Wrong status [%s]".formatted(currentState().status()), Status.Code.INVALID_ARGUMENT);
         };
     }
+
 
 }

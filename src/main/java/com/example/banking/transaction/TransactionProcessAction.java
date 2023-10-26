@@ -21,7 +21,6 @@ public class TransactionProcessAction extends Action {
         this.componentClient = componentClient;
     }
 
-
     public Effect<Ack> onInitiated(Initiated event){
         String transactionId = actionContext().eventSubject().get();
         log.info("handleInitiated for {}: {}",transactionId,event);

@@ -62,7 +62,7 @@ public class IntegrationTest extends KalixIntegrationTestKitSupport {
     log.info("Initiating withdraw...");
     componentClient.forAction().call(TransactionController::process).params(transactionId,new TransactionProcessRequest(amountToWithdraw,cardId)).execute().toCompletableFuture().get(3, TimeUnit.SECONDS);;
 
-    Thread.sleep(3000);
+    Thread.sleep(5000);
 
     var transactionByStatusViewRecordList = componentClient.forAction().call(TransactionController::getTransactionsByStatus).params(DomainModel.TransactionStatus.PROCESSED_SUCCESS.name()).execute().toCompletableFuture().get(10, TimeUnit.SECONDS);
     assertEquals(1,transactionByStatusViewRecordList.list().size());
