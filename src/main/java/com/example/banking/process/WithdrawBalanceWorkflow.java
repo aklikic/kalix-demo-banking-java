@@ -1,10 +1,10 @@
 package com.example.banking.process;
 
+import com.example.banking.BankingApiController;
 import com.example.banking.CommonModel;
 import com.example.banking.account.AccountEntity;
 import com.example.banking.transaction.TransactionEntity;
 import com.example.banking.user.UserApiModel;
-import com.example.banking.user.UserController;
 import io.grpc.Status;
 import kalix.javasdk.annotations.Id;
 import kalix.javasdk.annotations.TypeId;
@@ -45,7 +45,7 @@ public class WithdrawBalanceWorkflow extends Workflow<State> {
     public WorkflowDef<State> definition() {
         Step validateUser =
                 step("validateUser")
-                .call(GetUserAndAccountInput.class,  cmd ->  componentClient.forAction().call(UserController::getUserByCard).params(cmd.cardId()))
+                .call(GetUserAndAccountInput.class,  cmd ->  componentClient.forAction().call(BankingApiController::getUserByCard).params(cmd.cardId()))
                 .andThen(UserApiModel.UserByCardViewRecord.class, userByCardViewRecord -> {
                     if(userByCardViewRecord != null){
                         return effects().updateState(currentState().userValid(userByCardViewRecord.userId(), userByCardViewRecord.accountId()))
