@@ -3,9 +3,9 @@ package com.example.banking.process;
 
 import com.example.banking.CommonModel;
 import com.example.banking.account.AccountController;
-import com.example.banking.user.UserController;
 import com.example.banking.transaction.TransactionController;
 import com.example.banking.user.UserApiModel;
+import com.example.banking.user.UserController;
 import io.grpc.Status;
 import kalix.javasdk.annotations.Id;
 import kalix.javasdk.annotations.TypeId;
@@ -17,8 +17,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.reactive.function.client.WebClientException;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
+
+import java.util.Optional;
 
 import static com.example.banking.account.AccountApiModel.*;
+import static com.example.banking.user.UserApiModel.*;
 import static com.example.banking.process.DomainModel.State;
 import static com.example.banking.transaction.TransactionApiModel.TransactionProcessStatus;
 import static com.example.banking.transaction.TransactionApiModel.TransactionProcessStatusRequest;
@@ -27,7 +32,7 @@ import static com.example.banking.transaction.TransactionApiModel.TransactionPro
 @RequestMapping("/process/{transactionId}")
 public class WithdrawBalanceWorkflow extends Workflow<State> {
 
-    private final Logger log = LoggerFactory.getLogger(getClass());
+    private final static Logger log = LoggerFactory.getLogger(WithdrawBalanceWorkflow.class);
     private final String transactionId;
     private final ComponentClient componentClient;
 
@@ -42,6 +47,7 @@ public class WithdrawBalanceWorkflow extends Workflow<State> {
     }
 
     record GetUserAndAccountInput(String cardId){}
+    record GetUserAndAccountOutput(Optional<UserByCardViewRecord> maybeRecord){}
     record ReserveBalanceInput(double amountToWithdraw, String accountId){}
     record UpdateTransactionStatusInput(TransactionProcessStatus status){}
 
@@ -49,18 +55,24 @@ public class WithdrawBalanceWorkflow extends Workflow<State> {
     public WorkflowDef<State> definition() {
         Step validateUser =
                 step("validateUser")
-                //.call(GetUserAndAccountInput.class,  cmd ->  componentClient.forAction().call(UserController::getUserByCard).params(cmd.cardId()))
                 .asyncCall(GetUserAndAccountInput.class,  cmd  ->
                    componentClient.forAction().call(UserController::getUserByCard).params(cmd.cardId()).execute()
+                           .thenApply(Optional::ofNullable)
+                           .thenApply(GetUserAndAccountOutput::new)
                             .exceptionally(e -> {
-                                log.error("Error on validateUser:{}", e);
-                                throw (RuntimeException) e;
+                                if(e.getCause().getCause() instanceof WebClientResponseException.NotFound){
+                                    log.error("User not found by cardId "+cmd.cardId());
+                                    return new GetUserAndAccountOutput(Optional.empty());
+                                }else {
+                                    log.error("Error on validateUser:{}", e);
+                                    throw (RuntimeException) e;
+                                }
                             })
                 )
-                .andThen(UserApiModel.UserByCardViewRecord.class, userByCardViewRecord -> {
-                    if(userByCardViewRecord != null){
-                        return effects().updateState(currentState().userValid(userByCardViewRecord.userId(), userByCardViewRecord.accountId()))
-                                .transitionTo("reserveBalance", new ReserveBalanceInput(currentState().amountToWithdraw(), userByCardViewRecord.accountId()));
+                .andThen(GetUserAndAccountOutput.class, output -> {
+                    if(output.maybeRecord().isPresent()){
+                        return effects().updateState(currentState().userValid(output.maybeRecord().get().userId(), output.maybeRecord().get().accountId()))
+                                .transitionTo("reserveBalance", new ReserveBalanceInput(currentState().amountToWithdraw(), output.maybeRecord().get().accountId()));
                     } else {
                         return effects().updateState(currentState().userNotFound())
                                 .transitionTo("updateTransactionWithoutReserve", new UpdateTransactionStatusInput(TransactionProcessStatus.USER_NOT_FOUND));

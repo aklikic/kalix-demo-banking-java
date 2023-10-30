@@ -14,7 +14,7 @@ import static com.example.banking.transaction.DomainModel.ProcessInitiated;
 @Subscribe.EventSourcedEntity(value = TransactionEntity.class,ignoreUnknown = true)
 public class TransactionProcessAction extends Action {
 
-    private final Logger log = LoggerFactory.getLogger(getClass());
+    private final static Logger log = LoggerFactory.getLogger(TransactionProcessAction.class);
     private final ComponentClient componentClient;
 
     public TransactionProcessAction(ComponentClient componentClient) {

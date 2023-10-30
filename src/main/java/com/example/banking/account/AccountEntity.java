@@ -22,8 +22,7 @@ import static com.example.banking.account.DomainModel.*;
 @TypeId("account")
 @RequestMapping("/account/{accountId}")
 public class AccountEntity extends EventSourcedEntity<State, Event> {
-
-    private final Logger log = LoggerFactory.getLogger(getClass());
+    private final static Logger log = LoggerFactory.getLogger(AccountEntity.class);
     private final String accountId;
 
     public AccountEntity(EventSourcedEntityContext context) {

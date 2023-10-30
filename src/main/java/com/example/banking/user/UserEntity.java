@@ -22,7 +22,7 @@ import static com.example.banking.user.UserApiModel.*;
 @RequestMapping("/user/{userId}")
 public class UserEntity extends EventSourcedEntity<State, Event> {
 
-    private final Logger log = LoggerFactory.getLogger(getClass());
+    private final static Logger log = LoggerFactory.getLogger(UserEntity.class);
     private final String userId;
 
     public UserEntity(EventSourcedEntityContext context) {

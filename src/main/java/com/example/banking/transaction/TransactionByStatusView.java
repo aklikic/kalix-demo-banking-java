@@ -16,7 +16,7 @@ import static com.example.banking.transaction.TransactionApiModel.TransactionByS
 @Subscribe.EventSourcedEntity(value = TransactionEntity.class, ignoreUnknown = true)
 public class TransactionByStatusView extends View<TransactionByStatusViewRecord> {
 
-    private final Logger log = LoggerFactory.getLogger(getClass());
+    private final static Logger log = LoggerFactory.getLogger(TransactionByStatusView.class);
     @GetMapping("/transaction/get_by_status/{statusId}")
     @Query("SELECT * as list FROM transaction_by_status WHERE statusId = :statusId")
     public TransactionByStatusViewRecordList getTransactionsByStatus(@PathVariable String statusId){

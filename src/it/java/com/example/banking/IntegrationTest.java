@@ -66,6 +66,39 @@ public class IntegrationTest extends KalixIntegrationTestKitSupport {
   }
 
   @Test
+  public void testAccountNotFound() throws Exception {
+    var accountNumber = "1111";
+    var name = "John Doe";
+    var userId = UUID.randomUUID().toString();
+    var cardId = UUID.randomUUID().toString();
+    var accountId = UUID.randomUUID().toString();
+    var transactionId = UUID.randomUUID().toString();
+
+    var initialBalance = 10000;
+    var amountToWithdraw = 100;
+
+    log.info("Creating account...");
+    componentClient.forAction().call(AccountController::create).params(accountId,new CreateAccountRequest(accountNumber,initialBalance)).execute().toCompletableFuture().get(3, TimeUnit.SECONDS);
+
+    log.info("Creating user with wrong account...");
+    accountId = "Wrong account";
+    componentClient.forAction().call(UserController::create).params(userId,new CreateUserRequest(name,cardId,accountId)).execute().toCompletableFuture().get(3, TimeUnit.SECONDS);
+
+    Thread.sleep(3000);
+    var userByCardIdRes = componentClient.forAction().call(UserController::getUserByCard).params(cardId).execute().toCompletableFuture().get(3, TimeUnit.SECONDS);
+    assertEquals(userId,userByCardIdRes.userId());
+
+    log.info("Initiating withdraw...");
+    componentClient.forAction().call(TransactionController::process).params(transactionId,new TransactionProcessRequest(amountToWithdraw,cardId)).execute().toCompletableFuture().get(3, TimeUnit.SECONDS);;
+
+    Thread.sleep(5000);
+
+    var transactionByStatusViewRecordList = componentClient.forAction().call(TransactionController::getTransactionsByStatus).params(DomainModel.TransactionStatus.PROCESSED_ACCOUNT_NOT_FOUND.name()).execute().toCompletableFuture().get(10, TimeUnit.SECONDS);
+    assertEquals(1,transactionByStatusViewRecordList.list().size());
+
+  }
+
+  @Test
   public void testUserNotFound() throws Exception {
     var accountNumber = "1111";
     var name = "John Doe";
@@ -87,7 +120,7 @@ public class IntegrationTest extends KalixIntegrationTestKitSupport {
     var userByCardIdRes = componentClient.forAction().call(UserController::getUserByCard).params(cardId).execute().toCompletableFuture().get(3, TimeUnit.SECONDS);
     assertEquals(userId,userByCardIdRes.userId());
 
-    log.info("Initiating withdraw...");
+    log.info("Initiating withdraw with unknown card id...");
     cardId = "Wrong card";
     componentClient.forAction().call(TransactionController::process).params(transactionId,new TransactionProcessRequest(amountToWithdraw,cardId)).execute().toCompletableFuture().get(3, TimeUnit.SECONDS);;
 
@@ -97,4 +130,38 @@ public class IntegrationTest extends KalixIntegrationTestKitSupport {
     assertEquals(1,transactionByStatusViewRecordList.list().size());
 
   }
+
+  @Test
+  public void testFundsUnavailable() throws Exception {
+    var accountNumber = "1111";
+    var name = "John Doe";
+    var userId = UUID.randomUUID().toString();
+    var cardId = UUID.randomUUID().toString();
+    var accountId = UUID.randomUUID().toString();
+    var transactionId = UUID.randomUUID().toString();
+
+    var initialBalance = 10000;
+    var amountToWithdraw = 100;
+
+    log.info("Creating account with low initial balance...");
+    componentClient.forAction().call(AccountController::create).params(accountId,new CreateAccountRequest(accountNumber,initialBalance)).execute().toCompletableFuture().get(3, TimeUnit.SECONDS);
+
+    log.info("Creating user...");
+    componentClient.forAction().call(UserController::create).params(userId,new CreateUserRequest(name,cardId,accountId)).execute().toCompletableFuture().get(3, TimeUnit.SECONDS);
+
+    Thread.sleep(3000);
+    var userByCardIdRes = componentClient.forAction().call(UserController::getUserByCard).params(cardId).execute().toCompletableFuture().get(3, TimeUnit.SECONDS);
+    assertEquals(userId,userByCardIdRes.userId());
+
+    log.info("Initiating withdraw higher then initial balance...");
+    amountToWithdraw = initialBalance + 100;
+    componentClient.forAction().call(TransactionController::process).params(transactionId,new TransactionProcessRequest(amountToWithdraw,cardId)).execute().toCompletableFuture().get(3, TimeUnit.SECONDS);;
+
+    Thread.sleep(5000);
+
+    var transactionByStatusViewRecordList = componentClient.forAction().call(TransactionController::getTransactionsByStatus).params(DomainModel.TransactionStatus.PROCESSED_FUNDS_UNAVAILABLE.name()).execute().toCompletableFuture().get(10, TimeUnit.SECONDS);
+    assertEquals(1,transactionByStatusViewRecordList.list().size());
+
+  }
+
 }

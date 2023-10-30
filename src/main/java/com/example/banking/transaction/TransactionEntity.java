@@ -14,15 +14,15 @@ import org.springframework.web.bind.annotation.RequestMapping;
 
 import java.time.Instant;
 
-import static com.example.banking.transaction.TransactionApiModel.*;
 import static com.example.banking.transaction.DomainModel.*;
+import static com.example.banking.transaction.TransactionApiModel.*;
 
 @Id("transactionId")
 @TypeId("transaction")
 @RequestMapping("/transaction/{transactionId}")
 public class TransactionEntity extends EventSourcedEntity<State, Event> {
 
-    private final Logger log = LoggerFactory.getLogger(getClass());
+    private final static Logger log = LoggerFactory.getLogger(TransactionEntity.class);
     private final String transactionId;
 
     public TransactionEntity(EventSourcedEntityContext context) {
