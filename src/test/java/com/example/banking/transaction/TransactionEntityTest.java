@@ -19,7 +19,7 @@ public class TransactionEntityTest {
         var testKit = EventSourcedTestKit.of(transactionId, TransactionEntity::new);
 
         var processRequestResult = testKit.call(entity -> entity.process(new TransactionProcessRequest(amount,cardId)));
-        var initiatedEvent = processRequestResult.getNextEventOfType(Initiated.class);
+        var initiatedEvent = processRequestResult.getNextEventOfType(ProcessInitiated.class);
         assertEquals(amount, initiatedEvent.amountToWithdraw());
         State updatedState = (State)processRequestResult.getUpdatedState();
         assertEquals(TransactionStatus.INITIATED,updatedState.transaction().status());

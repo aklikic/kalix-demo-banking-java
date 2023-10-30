@@ -1,9 +1,10 @@
 package com.example.banking.process;
 
-import com.example.banking.BankingApiController;
+
 import com.example.banking.CommonModel;
-import com.example.banking.account.AccountEntity;
-import com.example.banking.transaction.TransactionEntity;
+import com.example.banking.account.AccountController;
+import com.example.banking.user.UserController;
+import com.example.banking.transaction.TransactionController;
 import com.example.banking.user.UserApiModel;
 import io.grpc.Status;
 import kalix.javasdk.annotations.Id;
@@ -11,6 +12,8 @@ import kalix.javasdk.annotations.TypeId;
 import kalix.javasdk.client.ComponentClient;
 import kalix.javasdk.workflow.Workflow;
 import kalix.javasdk.workflow.WorkflowContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,6 +27,7 @@ import static com.example.banking.transaction.TransactionApiModel.TransactionPro
 @RequestMapping("/process/{transactionId}")
 public class WithdrawBalanceWorkflow extends Workflow<State> {
 
+    private final Logger log = LoggerFactory.getLogger(getClass());
     private final String transactionId;
     private final ComponentClient componentClient;
 
@@ -45,7 +49,14 @@ public class WithdrawBalanceWorkflow extends Workflow<State> {
     public WorkflowDef<State> definition() {
         Step validateUser =
                 step("validateUser")
-                .call(GetUserAndAccountInput.class,  cmd ->  componentClient.forAction().call(BankingApiController::getUserByCard).params(cmd.cardId()))
+                //.call(GetUserAndAccountInput.class,  cmd ->  componentClient.forAction().call(UserController::getUserByCard).params(cmd.cardId()))
+                .asyncCall(GetUserAndAccountInput.class,  cmd  ->
+                   componentClient.forAction().call(UserController::getUserByCard).params(cmd.cardId()).execute()
+                            .exceptionally(e -> {
+                                log.error("Error on validateUser:{}", e);
+                                throw (RuntimeException) e;
+                            })
+                )
                 .andThen(UserApiModel.UserByCardViewRecord.class, userByCardViewRecord -> {
                     if(userByCardViewRecord != null){
                         return effects().updateState(currentState().userValid(userByCardViewRecord.userId(), userByCardViewRecord.accountId()))
@@ -56,14 +67,15 @@ public class WithdrawBalanceWorkflow extends Workflow<State> {
                     }
                 });
 
+
         Step updateTransactionWithoutReserve =
                 step("updateTransactionWithoutReserve")
-                        .call( UpdateTransactionStatusInput.class, cmd -> componentClient.forEventSourcedEntity(transactionId).call(TransactionEntity::setProcessedStatus).params(new TransactionProcessStatusRequest(cmd.status())))
+                        .call( UpdateTransactionStatusInput.class, cmd -> componentClient.forAction().call(TransactionController::setProcessedStatus).params(transactionId, new TransactionProcessStatusRequest(cmd.status())))
                         .andThen(Ack.class, __ -> effects().updateState(currentState().completed()).end());
 
         Step reserveBalance =
                 step("reserveBalance")
-                .call(ReserveBalanceInput.class, cmd -> componentClient.forEventSourcedEntity(cmd.accountId()).call(AccountEntity::reserve).params(new ReserveBalanceRequest(transactionId, cmd.amountToWithdraw())))
+                .call(ReserveBalanceInput.class, cmd -> componentClient.forAction().call(AccountController::reserve).params(cmd.accountId(),new ReserveBalanceRequest(transactionId, cmd.amountToWithdraw())))
                 .andThen(BalanceResponse.class, balanceResponse ->
                     switch (balanceResponse.status()){
                         case SUCCESS -> effects().updateState(currentState().completed()).transitionTo("updateTransactionWithReserve", new UpdateTransactionStatusInput(TransactionProcessStatus.COMPLETED));
@@ -74,13 +86,13 @@ public class WithdrawBalanceWorkflow extends Workflow<State> {
 
         Step updateTransactionWithReserve =
                 step("updateTransactionWithReserve")
-                .call( UpdateTransactionStatusInput.class, cmd -> componentClient.forEventSourcedEntity(transactionId).call(TransactionEntity::setProcessedStatus).params(new TransactionProcessStatusRequest(cmd.status())))
+                .call( UpdateTransactionStatusInput.class, cmd -> componentClient.forAction().call(TransactionController::setProcessedStatus).params(transactionId,new TransactionProcessStatusRequest(cmd.status())))
                 .andThen(Ack.class, __ -> effects().updateState(currentState().completed())
                         .transitionTo("completeBalanceReservation", new ReserveBalanceInput(currentState().amountToWithdraw(), currentState().accountId())));
 
         Step completeBalanceReservation =
                 step("completeBalanceReservation")
-                .call(ReserveBalanceInput.class, cmd -> componentClient.forEventSourcedEntity(cmd.accountId()).call(AccountEntity::completeReservation).params(new CompleteBalanceReservationRequest(transactionId)))
+                .call(ReserveBalanceInput.class, cmd -> componentClient.forAction().call(AccountController::completeReservation).params(cmd.accountId(),new CompleteBalanceReservationRequest(transactionId)))
                 .andThen(BalanceResponse.class, balanceResponse -> {
                     var updateState = switch (balanceResponse.status()){
                         case SUCCESS -> effects().updateState(currentState().completed());

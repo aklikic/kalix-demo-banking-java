@@ -1,5 +1,8 @@
 package com.example.banking;
 
+import com.example.banking.transaction.TransactionController;
+import com.example.banking.user.UserController;
+import com.example.banking.account.AccountController;
 import com.example.banking.transaction.DomainModel;
 import kalix.spring.testkit.KalixIntegrationTestKitSupport;
 import org.junit.jupiter.api.Test;
@@ -28,10 +31,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @SpringBootTest(classes = Main.class)
 public class IntegrationTest extends KalixIntegrationTestKitSupport {
 
-  private static final Logger log = LoggerFactory.getLogger(IntegrationTest.class);
+  private final Logger log = LoggerFactory.getLogger(getClass());
 
   @Test
-  public void test() throws Exception {
+  public void testHappyPath() throws Exception {
     var accountNumber = "1111";
     var name = "John Doe";
     var userId = UUID.randomUUID().toString();
@@ -43,21 +46,54 @@ public class IntegrationTest extends KalixIntegrationTestKitSupport {
     var amountToWithdraw = 100;
 
     log.info("Creating account...");
-    componentClient.forAction().call(BankingApiController::createAccount).params(accountId,new CreateAccountRequest(accountNumber,initialBalance)).execute().toCompletableFuture().get(3, TimeUnit.SECONDS);
+    componentClient.forAction().call(AccountController::create).params(accountId,new CreateAccountRequest(accountNumber,initialBalance)).execute().toCompletableFuture().get(3, TimeUnit.SECONDS);
 
     log.info("Creating user...");
-    componentClient.forAction().call(BankingApiController::createUser).params(userId,new CreateUserRequest(name,cardId,accountId)).execute().toCompletableFuture().get(3, TimeUnit.SECONDS);
+    componentClient.forAction().call(UserController::create).params(userId,new CreateUserRequest(name,cardId,accountId)).execute().toCompletableFuture().get(3, TimeUnit.SECONDS);
 
     Thread.sleep(3000);
-    var userByCardIdRes = componentClient.forAction().call(BankingApiController::getUserByCard).params(cardId).execute().toCompletableFuture().get(3, TimeUnit.SECONDS);
+    var userByCardIdRes = componentClient.forAction().call(UserController::getUserByCard).params(cardId).execute().toCompletableFuture().get(3, TimeUnit.SECONDS);
     assertEquals(userId,userByCardIdRes.userId());
 
     log.info("Initiating withdraw...");
-    componentClient.forAction().call(BankingApiController::processTransaction).params(transactionId,new TransactionProcessRequest(amountToWithdraw,cardId)).execute().toCompletableFuture().get(3, TimeUnit.SECONDS);;
+    componentClient.forAction().call(TransactionController::process).params(transactionId,new TransactionProcessRequest(amountToWithdraw,cardId)).execute().toCompletableFuture().get(3, TimeUnit.SECONDS);;
 
     Thread.sleep(5000);
 
-    var transactionByStatusViewRecordList = componentClient.forAction().call(BankingApiController::getTransactionsByStatus).params(DomainModel.TransactionStatus.PROCESSED_SUCCESS.name()).execute().toCompletableFuture().get(10, TimeUnit.SECONDS);
+    var transactionByStatusViewRecordList = componentClient.forAction().call(TransactionController::getTransactionsByStatus).params(DomainModel.TransactionStatus.PROCESSED_SUCCESS.name()).execute().toCompletableFuture().get(10, TimeUnit.SECONDS);
+    assertEquals(1,transactionByStatusViewRecordList.list().size());
+
+  }
+
+  @Test
+  public void testUserNotFound() throws Exception {
+    var accountNumber = "1111";
+    var name = "John Doe";
+    var userId = UUID.randomUUID().toString();
+    var cardId = UUID.randomUUID().toString();
+    var accountId = UUID.randomUUID().toString();
+    var transactionId = UUID.randomUUID().toString();
+
+    var initialBalance = 10000;
+    var amountToWithdraw = 100;
+
+    log.info("Creating account...");
+    componentClient.forAction().call(AccountController::create).params(accountId,new CreateAccountRequest(accountNumber,initialBalance)).execute().toCompletableFuture().get(3, TimeUnit.SECONDS);
+
+    log.info("Creating user...");
+    componentClient.forAction().call(UserController::create).params(userId,new CreateUserRequest(name,cardId,accountId)).execute().toCompletableFuture().get(3, TimeUnit.SECONDS);
+
+    Thread.sleep(3000);
+    var userByCardIdRes = componentClient.forAction().call(UserController::getUserByCard).params(cardId).execute().toCompletableFuture().get(3, TimeUnit.SECONDS);
+    assertEquals(userId,userByCardIdRes.userId());
+
+    log.info("Initiating withdraw...");
+    cardId = "Wrong card";
+    componentClient.forAction().call(TransactionController::process).params(transactionId,new TransactionProcessRequest(amountToWithdraw,cardId)).execute().toCompletableFuture().get(3, TimeUnit.SECONDS);;
+
+    Thread.sleep(5000);
+
+    var transactionByStatusViewRecordList = componentClient.forAction().call(TransactionController::getTransactionsByStatus).params(DomainModel.TransactionStatus.PROCESSED_USER_NOT_FOUND.name()).execute().toCompletableFuture().get(10, TimeUnit.SECONDS);
     assertEquals(1,transactionByStatusViewRecordList.list().size());
 
   }

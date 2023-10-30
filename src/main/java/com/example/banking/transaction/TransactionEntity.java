@@ -22,7 +22,7 @@ import static com.example.banking.transaction.DomainModel.*;
 @RequestMapping("/transaction/{transactionId}")
 public class TransactionEntity extends EventSourcedEntity<State, Event> {
 
-    private static final Logger log = LoggerFactory.getLogger(TransactionEntity.class);
+    private final Logger log = LoggerFactory.getLogger(getClass());
     private final String transactionId;
 
     public TransactionEntity(EventSourcedEntityContext context) {
@@ -38,7 +38,7 @@ public class TransactionEntity extends EventSourcedEntity<State, Event> {
     public Effect<Ack> process(@RequestBody TransactionProcessRequest request){
         log.info("Process transaction [{}] with details: {}", transactionId, request);
         if(currentState().isEmpty()){
-            var event = new Initiated(request.amountToWithdraw(), request.cardId(), Instant.now());
+            var event = new ProcessInitiated(request.amountToWithdraw(), request.cardId(), Instant.now());
             return effects().emitEvent(event).thenReply(updatedState -> Ack.of());
         }else if(currentState().transaction().status() == TransactionStatus.INITIATED){
             log.info("Already processed transaction [{}]",transactionId);
@@ -75,8 +75,8 @@ public class TransactionEntity extends EventSourcedEntity<State, Event> {
     }
 
     @EventHandler
-    public State onInitiated(Initiated event){
-        return currentState().onInitiatedEvent(event);
+    public State onInitiated(ProcessInitiated event){
+        return currentState().onProcessInitiatedEvent(event);
     }
 
     @EventHandler

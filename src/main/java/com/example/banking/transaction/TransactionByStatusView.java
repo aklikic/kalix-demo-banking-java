@@ -23,7 +23,7 @@ public class TransactionByStatusView extends View<TransactionByStatusViewRecord>
         return null;
     }
 
-    public UpdateEffect<TransactionByStatusViewRecord> onInitiated(Initiated event){
+    public UpdateEffect<TransactionByStatusViewRecord> onInitiated(ProcessInitiated event){
         String transactionId = updateContext().eventSubject().get();
         log.info("onInitiated: {}",transactionId);
         return effects().updateState(new TransactionByStatusViewRecord(TransactionStatus.INITIATED.name(),transactionId));

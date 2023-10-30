@@ -23,7 +23,7 @@ import static com.example.banking.account.DomainModel.*;
 @RequestMapping("/account/{accountId}")
 public class AccountEntity extends EventSourcedEntity<State, Event> {
 
-    private static final Logger log = LoggerFactory.getLogger(AccountEntity.class);
+    private final Logger log = LoggerFactory.getLogger(getClass());
     private final String accountId;
 
     public AccountEntity(EventSourcedEntityContext context) {
