@@ -67,10 +67,10 @@ public class TransactionEntity extends EventSourcedEntity<State, Event> {
     }
     private TransactionStatus from(TransactionProcessStatus status){
         return switch (status){
-            case COMPLETED -> TransactionStatus.PROCESSED_SUCCESS;
-            case USER_NOT_FOUND -> TransactionStatus.PROCESSED_USER_NOT_FOUND;
-            case ACCOUNT_NOT_FOUND -> TransactionStatus.PROCESSED_ACCOUNT_NOT_FOUND;
-            case FUNDS_UNAVAILABLE -> TransactionStatus.PROCESSED_FUNDS_UNAVAILABLE;
+            case COMPLETED -> TransactionStatus.SUCCESS;
+            case USER_NOT_FOUND -> TransactionStatus.USER_NOT_FOUND;
+            case ACCOUNT_NOT_FOUND -> TransactionStatus.ACCOUNT_NOT_FOUND;
+            case FUNDS_UNAVAILABLE -> TransactionStatus.FUNDS_UNAVAILABLE;
         };
     }
 

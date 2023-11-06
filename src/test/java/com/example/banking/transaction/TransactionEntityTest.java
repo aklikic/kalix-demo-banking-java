@@ -26,8 +26,8 @@ public class TransactionEntityTest {
 
         var setProcessedRequestResult = testKit.call(entity -> entity.setProcessedStatus(new TransactionProcessStatusRequest(TransactionProcessStatus.COMPLETED)));
         var processedEvent = setProcessedRequestResult.getNextEventOfType(Processed.class);
-        assertEquals(TransactionStatus.PROCESSED_SUCCESS, processedEvent.status());
+        assertEquals(TransactionStatus.SUCCESS, processedEvent.status());
         updatedState = (State)setProcessedRequestResult.getUpdatedState();
-        assertEquals(TransactionStatus.PROCESSED_SUCCESS,updatedState.transaction().status());
+        assertEquals(TransactionStatus.SUCCESS,updatedState.transaction().status());
     }
 }

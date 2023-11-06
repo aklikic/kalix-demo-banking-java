@@ -4,7 +4,6 @@ package com.example.banking.process;
 import com.example.banking.CommonModel;
 import com.example.banking.account.AccountController;
 import com.example.banking.transaction.TransactionController;
-import com.example.banking.user.UserApiModel;
 import com.example.banking.user.UserController;
 import io.grpc.Status;
 import kalix.javasdk.annotations.Id;
@@ -17,16 +16,15 @@ import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.reactive.function.client.WebClientException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import java.util.Optional;
 
 import static com.example.banking.account.AccountApiModel.*;
-import static com.example.banking.user.UserApiModel.*;
 import static com.example.banking.process.DomainModel.State;
 import static com.example.banking.transaction.TransactionApiModel.TransactionProcessStatus;
 import static com.example.banking.transaction.TransactionApiModel.TransactionProcessStatusRequest;
+import static com.example.banking.user.UserApiModel.UserByCardViewRecord;
 @Id("transactionId")
 @TypeId("process")
 @RequestMapping("/process/{transactionId}")
@@ -82,7 +80,8 @@ public class WithdrawBalanceWorkflow extends Workflow<State> {
 
         Step updateTransactionWithoutReserve =
                 step("updateTransactionWithoutReserve")
-                        .call( UpdateTransactionStatusInput.class, cmd -> componentClient.forAction().call(TransactionController::setProcessedStatus).params(transactionId, new TransactionProcessStatusRequest(cmd.status())))
+                        .call( UpdateTransactionStatusInput.class, cmd -> componentClient.forAction().call(TransactionController::setProcessedStatus)
+                                .params(transactionId, new TransactionProcessStatusRequest(cmd.status())))
                         .andThen(Ack.class, __ -> effects().updateState(currentState().completed()).end());
 
         Step reserveBalance =
@@ -91,8 +90,10 @@ public class WithdrawBalanceWorkflow extends Workflow<State> {
                 .andThen(BalanceResponse.class, balanceResponse ->
                     switch (balanceResponse.status()){
                         case SUCCESS -> effects().updateState(currentState().completed()).transitionTo("updateTransactionWithReserve", new UpdateTransactionStatusInput(TransactionProcessStatus.COMPLETED));
-                        case ACCOUNT_NOT_FOUND -> effects().updateState(currentState().accountNotFound()).transitionTo("updateTransactionWithReserve", new UpdateTransactionStatusInput(TransactionProcessStatus.ACCOUNT_NOT_FOUND));
-                        case FUNDS_UNAVAILABLE -> effects().updateState(currentState().fundsUnavailable()).transitionTo("updateTransactionWithReserve", new UpdateTransactionStatusInput(TransactionProcessStatus.FUNDS_UNAVAILABLE));
+                        case ACCOUNT_NOT_FOUND -> effects().updateState(currentState().accountNotFound())
+                                .transitionTo("updateTransactionWithReserve", new UpdateTransactionStatusInput(TransactionProcessStatus.ACCOUNT_NOT_FOUND));
+                        case FUNDS_UNAVAILABLE -> effects().updateState(currentState().fundsUnavailable())
+                                .transitionTo("updateTransactionWithReserve", new UpdateTransactionStatusInput(TransactionProcessStatus.FUNDS_UNAVAILABLE));
                     }
                 );
 
@@ -105,14 +106,7 @@ public class WithdrawBalanceWorkflow extends Workflow<State> {
         Step completeBalanceReservation =
                 step("completeBalanceReservation")
                 .call(ReserveBalanceInput.class, cmd -> componentClient.forAction().call(AccountController::completeReservation).params(cmd.accountId(),new CompleteBalanceReservationRequest(transactionId)))
-                .andThen(BalanceResponse.class, balanceResponse -> {
-                    var updateState = switch (balanceResponse.status()){
-                        case SUCCESS -> effects().updateState(currentState().completed());
-                        case ACCOUNT_NOT_FOUND -> effects().updateState(currentState().accountNotFound());
-                        case FUNDS_UNAVAILABLE -> effects().updateState(currentState().fundsUnavailable());
-                    };
-                    return updateState.end();
-                });
+                .andThen(BalanceResponse.class, balanceResponse -> effects().updateState(currentState().completed()).end());
         return workflow()
                 .addStep(validateUser)
                 .addStep(updateTransactionWithoutReserve)

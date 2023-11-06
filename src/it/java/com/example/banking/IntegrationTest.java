@@ -60,7 +60,7 @@ public class IntegrationTest extends KalixIntegrationTestKitSupport {
 
     Thread.sleep(5000);
 
-    var transactionByStatusViewRecordList = componentClient.forAction().call(TransactionController::getTransactionsByStatus).params(DomainModel.TransactionStatus.PROCESSED_SUCCESS.name()).execute().toCompletableFuture().get(10, TimeUnit.SECONDS);
+    var transactionByStatusViewRecordList = componentClient.forAction().call(TransactionController::getTransactionsByStatus).params(DomainModel.TransactionStatus.SUCCESS.name()).execute().toCompletableFuture().get(10, TimeUnit.SECONDS);
     assertEquals(1,transactionByStatusViewRecordList.list().size());
 
   }
@@ -93,7 +93,7 @@ public class IntegrationTest extends KalixIntegrationTestKitSupport {
 
     Thread.sleep(5000);
 
-    var transactionByStatusViewRecordList = componentClient.forAction().call(TransactionController::getTransactionsByStatus).params(DomainModel.TransactionStatus.PROCESSED_ACCOUNT_NOT_FOUND.name()).execute().toCompletableFuture().get(10, TimeUnit.SECONDS);
+    var transactionByStatusViewRecordList = componentClient.forAction().call(TransactionController::getTransactionsByStatus).params(DomainModel.TransactionStatus.ACCOUNT_NOT_FOUND.name()).execute().toCompletableFuture().get(10, TimeUnit.SECONDS);
     assertEquals(1,transactionByStatusViewRecordList.list().size());
 
   }
@@ -126,7 +126,7 @@ public class IntegrationTest extends KalixIntegrationTestKitSupport {
 
     Thread.sleep(5000);
 
-    var transactionByStatusViewRecordList = componentClient.forAction().call(TransactionController::getTransactionsByStatus).params(DomainModel.TransactionStatus.PROCESSED_USER_NOT_FOUND.name()).execute().toCompletableFuture().get(10, TimeUnit.SECONDS);
+    var transactionByStatusViewRecordList = componentClient.forAction().call(TransactionController::getTransactionsByStatus).params(DomainModel.TransactionStatus.USER_NOT_FOUND.name()).execute().toCompletableFuture().get(10, TimeUnit.SECONDS);
     assertEquals(1,transactionByStatusViewRecordList.list().size());
 
   }
@@ -159,7 +159,7 @@ public class IntegrationTest extends KalixIntegrationTestKitSupport {
 
     Thread.sleep(5000);
 
-    var transactionByStatusViewRecordList = componentClient.forAction().call(TransactionController::getTransactionsByStatus).params(DomainModel.TransactionStatus.PROCESSED_FUNDS_UNAVAILABLE.name()).execute().toCompletableFuture().get(10, TimeUnit.SECONDS);
+    var transactionByStatusViewRecordList = componentClient.forAction().call(TransactionController::getTransactionsByStatus).params(DomainModel.TransactionStatus.FUNDS_UNAVAILABLE.name()).execute().toCompletableFuture().get(10, TimeUnit.SECONDS);
     assertEquals(1,transactionByStatusViewRecordList.list().size());
 
   }

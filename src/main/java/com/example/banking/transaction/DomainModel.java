@@ -25,10 +25,10 @@ public interface DomainModel {
 
     enum TransactionStatus {
         INITIATED,
-        PROCESSED_USER_NOT_FOUND,
-        PROCESSED_ACCOUNT_NOT_FOUND,
-        PROCESSED_FUNDS_UNAVAILABLE,
-        PROCESSED_SUCCESS
+        USER_NOT_FOUND,
+        ACCOUNT_NOT_FOUND,
+        FUNDS_UNAVAILABLE,
+        SUCCESS
 
     }
     record Transaction(double amountToWithdraw, String cardId, TransactionStatus status, Instant lastUpdatedTimestamp){ }
